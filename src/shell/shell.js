@@ -63,7 +63,7 @@ export function mountChrome(root, api) {
 }
 
 export function endMarkup(title, text, win, level) {
-  const next = win && level < 5
+  const next = win && level < 3
     ? '<button type="button" data-world-next>Следующий уровень</button>'
     : ''
   return '<div><h2>' + esc(title) + '</h2><p>' + esc(text) + '</p><div class="pg-end-row">' +

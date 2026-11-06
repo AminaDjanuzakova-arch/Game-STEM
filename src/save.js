@@ -1,5 +1,10 @@
 /* Прогресс хранителя. Старые сохранения без новых полей тоже открываются. */
 const KEY = 'planet-guardians-arcade-v1'
+
+function storageKey() {
+  const active = localStorage.getItem('pg-active-student') || ''
+  return active ? KEY + ':' + active : KEY
+}
 const SESSION = 'planet-guardians-session-v1'
 
 const EMPTY = {
@@ -12,12 +17,13 @@ const EMPTY = {
   cards: [],
   mastery: {},
   knowStars: {},
-  playMs: 0
+  playMs: 0,
+  prizes: {}
 }
 
 export function load() {
   try {
-    const raw = localStorage.getItem(KEY)
+    const raw = localStorage.getItem(storageKey())
     if (!raw) return structuredClone(EMPTY)
     return normalize(JSON.parse(raw))
   } catch (err) {
@@ -27,7 +33,7 @@ export function load() {
 
 export function write(data) {
   const next = normalize(data)
-  localStorage.setItem(KEY, JSON.stringify(next))
+  localStorage.setItem(storageKey(), JSON.stringify(next))
   return next
 }
 
@@ -36,7 +42,7 @@ export function update(patch) {
 }
 
 export function reset() {
-  localStorage.removeItem(KEY)
+  localStorage.removeItem(storageKey())
   sessionStorage.removeItem(SESSION)
   return structuredClone(EMPTY)
 }
@@ -84,6 +90,7 @@ function normalize(data) {
     cards: Array.isArray(data.cards) ? data.cards.filter((id) => typeof id === 'string') : [],
     mastery: data.mastery && typeof data.mastery === 'object' ? data.mastery : {},
     knowStars: data.knowStars && typeof data.knowStars === 'object' ? data.knowStars : {},
-    playMs: Number(data.playMs) || 0
+    playMs: Number(data.playMs) || 0,
+    prizes: data.prizes && typeof data.prizes === 'object' ? data.prizes : {}
   }
 }

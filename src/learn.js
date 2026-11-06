@@ -2,6 +2,16 @@
    Игровые звёзды мира живут отдельно, в save.worlds. */
 import { itemsOf, worldOf } from './data/curriculum.js'
 
+export function bandOf(level) {
+  if (level <= 2) return 1
+  if (level <= 4) return 2
+  return 3
+}
+
+export function itemsForLevel(worldId, level) {
+  return itemsOf(worldId).filter((entry) => bandOf(entry.level) === level)
+}
+
 export function masteryOf(worldId, data) {
   const items = itemsOf(worldId)
   const seen = items.filter((entry) => data.cards.includes(entry.id) || data.mastery?.[entry.id]?.ok)
