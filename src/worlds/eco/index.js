@@ -3,16 +3,25 @@
 import Phaser from 'phaser'
 import gsap from 'gsap'
 import { audioContext, beep, isMuted, loop, toggleMute } from '../../audio.js'
-import { cardById } from '../../rewards.js'
+import { itemById } from '../../data/curriculum.js'
+import { award, fault, mentor, mountChrome, endMarkup, bindEnd, requestExit } from '../../shell/shell.js'
 import './style.css'
 
 const KINDS = [
-  { id: 'paper', bin: 'paper', fact: 'eco-paper', title: 'Газета', color: 0x60a5fa },
-  { id: 'plastic', bin: 'plastic', fact: 'eco-plastic', title: 'Бутылка', color: 0xfacc15 },
-  { id: 'glass', bin: 'glass', fact: 'eco-glass', title: 'Банка', color: 0x4ade80 },
-  { id: 'food', bin: 'food', fact: 'eco-food', title: 'Огрызок', color: 0xfb923c },
-  { id: 'hazard', bin: 'hazard', fact: 'eco-hazard', title: 'Батарейка', color: 0xfb7185 },
-  { id: 'animal', bin: 'animal', fact: 'eco-animal', title: 'Птенец', color: 0xa78bfa }
+  { id: 'paper', bin: 'paper', fact: 'eco-paper', title: 'Газета', level: 1, color: 0x60a5fa },
+  { id: 'draft', bin: 'paper', fact: 'eco-save', title: 'Черновик', level: 1, color: 0x93c5fd },
+  { id: 'plastic', bin: 'plastic', fact: 'eco-plastic', title: 'Бутылка', level: 1, color: 0xfacc15 },
+  { id: 'glass', bin: 'glass', fact: 'eco-glass', title: 'Банка', level: 2, color: 0x4ade80 },
+  { id: 'food', bin: 'food', fact: 'eco-food', title: 'Огрызок', level: 2, color: 0xfb923c },
+  { id: 'leaf', bin: 'food', fact: 'eco-oxygen', title: 'Листва', level: 2, color: 0x16a34a },
+  { id: 'hazard', bin: 'hazard', fact: 'eco-hazard', title: 'Батарейка', level: 3, color: 0xfb7185 },
+  { id: 'lamp', bin: 'hazard', fact: 'eco-lamp', title: 'Лампа', level: 3, color: 0xf9a8d4 },
+  { id: 'animal', bin: 'animal', fact: 'eco-animal', title: 'Птенец', level: 3, color: 0xa78bfa },
+  { id: 'bag', bin: 'plastic', fact: 'eco-water', title: 'Пакет у реки', level: 4, color: 0x38bdf8 },
+  { id: 'peel', bin: 'food', fact: 'eco-cycle', title: 'Очистки', level: 4, color: 0xd97706 },
+  { id: 'smoke', bin: 'hazard', fact: 'eco-air', title: 'Дымная куча', level: 4, color: 0x64748b },
+  { id: 'rare', bin: 'animal', fact: 'eco-redbook', title: 'Редкая птица', level: 5, color: 0xf472b6 },
+  { id: 'sign', bin: 'animal', fact: 'eco-reserve', title: 'Знак заповедника', level: 5, color: 0x15803d }
 ]
 
 let live = null
@@ -24,6 +33,8 @@ class EcoScene extends Phaser.Scene {
     live = this
     this.hub = this.game.registry.get('hub')
     this.root = this.game.registry.get('root')
+    this.level = this.hub.level || 1
+    this.pool = KINDS.filter((kind) => kind.level === this.level || (this.level >= 5 && kind.level >= 4))
     this.combo = 0
     this.best = 0
     this.done = 0
@@ -35,7 +46,7 @@ class EcoScene extends Phaser.Scene {
     this.item = null
     this.seen = {}
     this.over = ''
-    this.order = this.deal(12)
+    this.order = this.deal(this.level >= 5 ? 8 : 6)
     this.cameras.main.setBackgroundColor('#e0f2fe')
     this.gfx = this.add.graphics()
     this.robot = this.drawRobot()
@@ -46,7 +57,8 @@ class EcoScene extends Phaser.Scene {
 
   deal(count) {
     const list = []
-    for (let i = 0; i < count; i += 1) list.push(KINDS[i % KINDS.length])
+    const pool = this.pool.length ? this.pool : KINDS
+    for (let i = 0; i < count; i += 1) list.push(pool[i % pool.length])
     for (let i = list.length - 1; i > 0; i -= 1) {
       const j = Math.floor(Math.random() * (i + 1))
       const swap = list[i]
@@ -71,11 +83,13 @@ class EcoScene extends Phaser.Scene {
   nextItem() {
     if (this.over) return
     if (!this.order.length) {
-      if (!this.boss) {
+      if (this.level >= 5 && !this.boss) {
         this.boss = true
-        this.order = this.deal(8)
-        this.say('Босс — мусорный вихрь! Фитиль короче.')
-        this.hub.discover('eco-boss')
+        this.order = this.deal(6)
+        const lesson = itemById('eco-boss')
+        if (lesson) mentor(this.root, lesson.mentor)
+        award(this.root, this.hub, 'eco-boss')
+        this.say('Босс — мусорный вихрь! Фитиль короче, бак всё равно свой.')
       } else {
         this.finish(true)
         return
@@ -98,9 +112,10 @@ class EcoScene extends Phaser.Scene {
       beep(520 + this.combo * 30, 0.06, 'square', 0.04)
       if (!this.seen[this.item.id]) {
         this.seen[this.item.id] = true
-        this.hub.discover(this.item.fact)
-        const card = cardById(this.item.fact)
-        this.say(this.combo > 1 ? 'Комбо ' + this.combo + '! ' + card.text : card.text)
+        award(this.root, this.hub, this.item.fact)
+        const card = itemById(this.item.fact)
+        if (card) mentor(this.root, card.mentor)
+        this.say(card ? card.because : this.item.title)
       } else if (this.combo % 3 === 0) {
         this.say('Комбо ' + this.combo + '! Знание ускоряет руки.')
       }
@@ -112,8 +127,9 @@ class EcoScene extends Phaser.Scene {
       this.miss += 1
       this.cameras.main.shake(80, 0.01)
       beep(120, 0.1, 'sawtooth', 0.04)
-      this.say(this.item.id === 'animal'
-        ? 'Живое не бросают в бак. Ему нужна помощь, не мусорка.'
+      fault(this.root, this.hub, this.item.fact)
+      this.say(this.item.bin === 'animal'
+        ? 'Живое не бросают в мусор. Ему нужна помощь.'
         : 'Это не тот бак. ' + this.item.title + ' едет в свой цвет.')
       if (this.dirt >= 5) this.finish(false)
     }
@@ -156,13 +172,13 @@ class EcoScene extends Phaser.Scene {
     const end = this.root.querySelector('.eco-end')
     end.hidden = false
     end.dataset.worldResult = victory ? 'win' : 'lose'
-    end.innerHTML = victory
-      ? '<div><h2>Река чистая</h2><p>Звёзды: ' + stars + '. Лучшее комбо ' + this.best + '.</p><button type="button" data-world-exit>На глобус</button></div>'
-      : '<div><h2>Река помутнела</h2><p>Бак никуда не делся. Можно разогнаться снова.</p><button type="button" data-world-retry>Ещё заход</button></div>'
-    const exit = end.querySelector('[data-world-exit]')
-    if (exit) exit.addEventListener('click', () => this.hub.finish({ win: true, stars }))
-    const retry = end.querySelector('[data-world-retry]')
-    if (retry) retry.addEventListener('click', () => this.scene.restart())
+    end.innerHTML = endMarkup(
+      victory ? 'Река чистая' : 'Река помутнела',
+      victory ? 'Звёзды: ' + stars + '. Лучшее комбо ' + this.best + '.' : 'Бак никуда не делся. Можно разогнаться снова.',
+      victory,
+      this.level
+    )
+    bindEnd(end, this.hub, { win: victory, stars: victory ? stars : 0, retry: () => this.scene.restart() })
   }
 
   say(text) {
@@ -218,7 +234,16 @@ export function mount(root, hub) {
   host.querySelectorAll('[data-bin]').forEach((btn) => btn.addEventListener('click', () => {
     if (live) live.sort(btn.dataset.bin)
   }))
-  const game = new Phaser.Game({
+  let game = null
+  const chrome = mountChrome(host, {
+    pause: () => game && game.scene.pause('eco'),
+    resume: () => game && game.scene.resume('eco'),
+    retry: () => game && game.scene.getScene('eco')?.scene.restart(),
+    exit: () => requestExit(host, hub),
+    muted: isMuted,
+    toggleSound: toggleMute
+  })
+  game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: host.querySelector('[data-view]'),
     width: 960,
@@ -244,6 +269,7 @@ export function mount(root, hub) {
   })
   return {
     destroy() {
+      chrome.destroy()
       stopMusic()
       live = null
       game.destroy(true)

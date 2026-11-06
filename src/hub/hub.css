@@ -76,6 +76,25 @@
 .album h3 { margin: 0 0 6px; font-size: 16px; }
 .album p { margin: 0; font-size: 13px; line-height: 1.35; color: #e9d5ff; }
 .album article.locked { opacity: 0.55; }
+.level-grid, .summary, .recap, .parents, .book {
+  flex: 1; min-height: 0; overflow: auto; padding: 8px 16px 16px;
+}
+.level-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.level-grid button, .summary button, .recap button, .parents button {
+  min-height: 72px; border: 0; border-radius: 16px; font-weight: 800; font-size: 16px;
+  background: #fbbf24; color: #1c1917;
+}
+.level-grid button small { display: block; font-weight: 600; }
+.level-grid button:disabled { opacity: 0.4; }
+.summary article, .book article, .parents article {
+  background: rgba(255,255,255,0.1); border-radius: 16px; padding: 10px; margin-bottom: 8px;
+}
+.bar { height: 10px; border-radius: 99px; background: rgba(255,255,255,0.15); overflow: hidden; }
+.bar i { display: block; height: 100%; background: #4ade80; }
+.book { display: grid; grid-template-columns: 240px 1fr; gap: 12px; }
+.book canvas { width: 100%; height: 220px; background: rgba(0,0,0,0.2); border-radius: 16px; }
+.book-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.book-tabs button { min-height: 40px; border-radius: 999px; border: 0; padding: 0 10px; font-weight: 800; }
 @media (max-width: 980px), (max-height: 700px) {
   .hub-stage { grid-template-columns: minmax(240px, 32%) 1fr; }
   .hero-card { min-height: 0; }

@@ -4,12 +4,16 @@
 import Phaser from 'phaser'
 import gsap from 'gsap'
 import { beep, isMuted, loop, toggleMute, audioContext } from '../../audio.js'
-import { cardById } from '../../rewards.js'
+import { load } from '../../save.js'
+import { orderByWeak } from '../../learn.js'
+import { itemById } from '../../data/curriculum.js'
+import { award, fault, mentor, mountChrome, endMarkup, bindEnd, requestExit } from '../../shell/shell.js'
 import './style.css'
 
 const ENCOUNTERS = [
   {
     id: 'cross',
+    level: 1,
     look: 0x38bdf8,
     beat: 'Машины закрывают обзор. Зебра дальше по улице.',
     correct: 'zebra',
@@ -23,6 +27,7 @@ const ENCOUNTERS = [
   },
   {
     id: 'light',
+    level: 1,
     look: 0x0284c7,
     beat: 'На зебре красный. Телефон звонит в кармане.',
     correct: 'wait',
@@ -36,6 +41,7 @@ const ENCOUNTERS = [
   },
   {
     id: 'home',
+    level: 2,
     look: 0xfb923c,
     beat: 'Дома на полу нож, рядом розетка.',
     correct: 'adult',
@@ -49,6 +55,7 @@ const ENCOUNTERS = [
   },
   {
     id: 'net',
+    level: 3,
     look: 0x7c3aed,
     beat: 'Чужой номер пишет: «Это мама, открой ссылку и пришли адрес».',
     correct: 'show',
@@ -59,12 +66,153 @@ const ENCOUNTERS = [
       { id: 'send', label: 'Отправить адрес' },
       { id: 'show', label: 'Показать взрослым' }
     ]
+  },
+  {
+    id: 'bus',
+    level: 1,
+    look: 0x0369a1,
+    beat: 'Автобус ещё катится к остановке.',
+    correct: 'wait',
+    fact: 'road-bus',
+    hint: 'Жди, пока автобус остановится и откроет дверь.',
+    actions: [
+      { id: 'front', label: 'Перебежать перед ним' },
+      { id: 'run', label: 'Бежать за автобусом' },
+      { id: 'wait', label: 'Ждать на остановке' }
+    ]
+  },
+  {
+    id: 'fire',
+    level: 2,
+    look: 0xea580c,
+    beat: 'В коридоре пахнет дымом.',
+    correct: 'out',
+    fact: 'home-fire',
+    hint: 'Выходи, прикрой дверь и звони 112. Не прячься.',
+    actions: [
+      { id: 'hide', label: 'Спрятаться в шкаф' },
+      { id: 'look', label: 'Идти смотреть огонь' },
+      { id: 'out', label: 'Выйти и позвонить 112' }
+    ]
+  },
+  {
+    id: 'balcony',
+    level: 2,
+    look: 0xfbbf24,
+    beat: 'Мяч застрял за перилами балкона.',
+    correct: 'adult',
+    fact: 'home-balcony',
+    hint: 'За перила не перегибаются. Зови взрослого.',
+    actions: [
+      { id: 'climb', label: 'Перегнуться за мячом' },
+      { id: 'throw', label: 'Бросить вниз другой предмет' },
+      { id: 'adult', label: 'Позвать взрослого' }
+    ]
+  },
+  {
+    id: 'pass',
+    level: 3,
+    look: 0x6d28d9,
+    beat: 'В игре просят пароль «для приза».',
+    correct: 'keep',
+    fact: 'net-pass',
+    hint: 'Пароль не говорят и не вводят на чужой странице.',
+    actions: [
+      { id: 'tell', label: 'Написать пароль' },
+      { id: 'same', label: 'Поставить тот же пароль везде' },
+      { id: 'keep', label: 'Ничего не отправлять' }
+    ]
+  },
+  {
+    id: 'stranger',
+    level: 3,
+    look: 0xbe185d,
+    beat: 'Незнакомец зовёт: «У меня конфета, пойдём».',
+    correct: 'stay',
+    fact: 'city-stranger',
+    hint: 'С чужим человеком не уходят, даже за подарок.',
+    actions: [
+      { id: 'go', label: 'Пойти за ним' },
+      { id: 'take', label: 'Взять конфету' },
+      { id: 'stay', label: 'Отойти к своим' }
+    ]
+  },
+  {
+    id: 'ice',
+    level: 4,
+    look: 0xe0f2fe,
+    beat: 'На реке лёд, посередине тёмное пятно.',
+    correct: 'shore',
+    fact: 'city-ice',
+    hint: 'Тёмный лёд не проверяют шагом.',
+    actions: [
+      { id: 'step', label: 'Проверить ногой' },
+      { id: 'run', label: 'Пробежать быстро' },
+      { id: 'shore', label: 'Остаться на берегу' }
+    ]
+  },
+  {
+    id: 'dog',
+    level: 4,
+    look: 0xf97316,
+    beat: 'Чужая собака без хозяина рычит.',
+    correct: 'calm',
+    fact: 'city-dog',
+    hint: 'Не беги и не кричи. Отойди спокойно и позови взрослого.',
+    actions: [
+      { id: 'pet', label: 'Погладить' },
+      { id: 'scream', label: 'Убежать с криком' },
+      { id: 'calm', label: 'Замереть и отойти' }
+    ]
+  },
+  {
+    id: 'water',
+    level: 4,
+    look: 0x06b6d4,
+    beat: 'Друзья зовут прыгнуть в незнакомую реку.',
+    correct: 'adult',
+    fact: 'city-water',
+    hint: 'В незнакомую воду не прыгают без взрослого.',
+    actions: [
+      { id: 'jump', label: 'Прыгнуть первым' },
+      { id: 'alone', label: 'Зайти одному' },
+      { id: 'adult', label: 'Позвать взрослого' }
+    ]
+  },
+  {
+    id: 'aid',
+    level: 4,
+    look: 0xef4444,
+    beat: 'Человек поранился, в ране торчит осколок.',
+    correct: 'call',
+    fact: 'city-aid',
+    hint: 'Осколок не вытаскивают. Зовут взрослых и звонят 112.',
+    actions: [
+      { id: 'pull', label: 'Вытащить осколок' },
+      { id: 'run', label: 'Убежать' },
+      { id: 'call', label: 'Звать взрослых и 112' }
+    ]
+  },
+  {
+    id: 'bike',
+    level: 5,
+    look: 0x22c55e,
+    beat: 'Велосипед зовёт на проезжую часть, шлем в корзине.',
+    correct: 'helm',
+    fact: 'city-bike',
+    hint: 'Сначала шлем. На дорогу с машинами один не выезжают.',
+    actions: [
+      { id: 'road', label: 'Выехать на дорогу' },
+      { id: 'ears', label: 'Надеть наушники' },
+      { id: 'helm', label: 'Надеть шлем и остаться во дворе' }
+    ]
   }
 ]
 
 const BOSS_HITS = [
   {
     beat: 'Король катит машину прямо на людей!',
+    fact: 'city-boss',
     correct: 'stop',
     hint: 'Героя узнают по тому, что он останавливает, а не бежит под колёса.',
     actions: [
@@ -75,6 +223,7 @@ const BOSS_HITS = [
   },
   {
     beat: 'Он подсовывает незнакомца с конфетой.',
+    fact: 'city-stranger',
     correct: 'away',
     hint: 'С незнакомцем не уходят, даже если предлагают подарок.',
     actions: [
@@ -85,6 +234,7 @@ const BOSS_HITS = [
   },
   {
     beat: 'Из люка лезет провод и искры.',
+    fact: 'home-safe',
     correct: 'back',
     hint: 'Искры и оголённые провода не трогают. Отходят и зовут взрослых.',
     actions: [
@@ -95,6 +245,7 @@ const BOSS_HITS = [
   },
   {
     beat: 'Король орёт: скорее открой ссылку, а то проиграешь!',
+    fact: 'net-safe',
     correct: 'close',
     hint: 'Спешка и приз в письме — частая ловушка. Ссылку закрывают.',
     actions: [
@@ -131,8 +282,11 @@ class CityScene extends Phaser.Scene {
     this.step = 0
     this.lock = true
     this.phase = 'walk'
-    this.queue = shuffle(ENCOUNTERS)
-    this.bossQueue = shuffle(BOSS_HITS)
+    const level = this.hub.level || 1
+    this.level = level
+    const data = load()
+    this.queue = orderByWeak(shuffle(ENCOUNTERS.filter((entry) => entry.level === level)), data, (entry) => entry.fact)
+    this.bossQueue = level >= 5 ? orderByWeak(shuffle(BOSS_HITS), data, (entry) => entry.fact) : []
     this.index = 0
     this.bossHp = this.bossQueue.length
     this.found = []
@@ -247,6 +401,8 @@ class CityScene extends Phaser.Scene {
       this.correct = beat.correct
       this.cameras.main.setBackgroundColor(beat.look)
       this.say(beat.beat)
+      const lesson = itemById(beat.fact)
+      if (lesson) mentor(this.root, lesson.mentor)
       this.renderActs(beat.actions)
       this.placeActors(beat.id)
     } else if (this.bossHp > 0 && this.bossQueue.length) {
@@ -257,6 +413,8 @@ class CityScene extends Phaser.Scene {
       this.current = beat
       this.correct = beat.correct
       this.say(beat.beat)
+      const lesson = itemById(beat.fact)
+      if (lesson) mentor(this.root, lesson.mentor)
       this.renderActs(beat.actions)
     } else {
       this.victory()
@@ -266,7 +424,7 @@ class CityScene extends Phaser.Scene {
 
   placeActors(id) {
     this.guard.x = id === 'home' || id === 'net' ? 280 : 200
-    this.car.setVisible(id === 'cross' || id === 'light')
+    this.car.setVisible(['cross', 'light', 'bus', 'bike'].includes(id))
     this.car.x = 820
   }
 
@@ -288,6 +446,7 @@ class CityScene extends Phaser.Scene {
       this.cameras.main.shake(180, 0.012)
       this.burst(this.guard.x, this.guard.y, 0xfb7185)
       if (this.car.visible) this.tweens.add({ targets: this.car, x: 160, duration: 280 })
+      fault(this.root, this.hub, this.current.fact)
       this.say(this.current.hint)
       beep(140, 0.2, 'sawtooth', 0.05)
       this.sync()
@@ -308,7 +467,8 @@ class CityScene extends Phaser.Scene {
     this.tweens.add({ targets: this.guard, y: this.guard.y - 24, duration: 160, yoyo: true })
     this.dog.x = this.guard.x - 70
     if (this.current.fact) this.showFact(this.current.fact)
-    this.say(this.phase === 'boss' ? 'Король отступает на шаг.' : 'Город выдохнул.')
+    const lesson = itemById(this.current.fact)
+    this.say(lesson ? lesson.because : 'Город выдохнул.')
     if (this.phase === 'boss') {
       this.bossHp -= 1
       this.bossQueue.shift()
@@ -334,9 +494,9 @@ class CityScene extends Phaser.Scene {
   }
 
   showFact(id) {
-    const card = cardById(id)
+    const card = itemById(id)
     if (!card) return
-    this.hub.discover(id)
+    award(this.root, this.hub, id)
     if (!this.found.includes(card.title)) this.found.push(card.title)
     const node = this.root.querySelector('.city-fact')
     node.hidden = false
@@ -356,18 +516,14 @@ class CityScene extends Phaser.Scene {
 
   victory() {
     this.phase = 'win'
-    this.showFact('city-boss')
+    if (this.level >= 5) this.showFact('city-boss')
     this.say('Король опасностей сбежал.')
     const end = this.root.querySelector('.city-end')
     end.hidden = false
     end.dataset.worldResult = 'win'
-    end.innerHTML = '<div><h2>Город спокоен</h2><p>Звёзды: ' + this.stars() +
-      '. Сундук открылся.</p><p>' + (this.found.join(' · ') || 'Ты держал правила в деле.') +
-      '</p><button type="button" data-world-exit>На глобус</button></div>'
+    end.innerHTML = endMarkup('Город спокоен', 'Звёзды: ' + this.stars() + '. ' + (this.found.join(' · ') || 'Правила сработали в деле.'), true, this.level)
     gsap.from(end, { scale: 0.9, duration: 0.35 })
-    end.querySelector('[data-world-exit]').addEventListener('click', () => {
-      this.hub.finish({ win: true, stars: this.stars() })
-    })
+    bindEnd(end, this.hub, { win: true, stars: this.stars(), retry: () => this.scene.restart() })
     this.sync()
   }
 
@@ -376,9 +532,8 @@ class CityScene extends Phaser.Scene {
     const end = this.root.querySelector('.city-end')
     end.hidden = false
     end.dataset.worldResult = 'lose'
-    end.innerHTML = '<div><h2>Смена не сдаётся</h2><p>Сердца кончились. Правила на месте — попробуй ещё раз.</p>' +
-      '<button type="button" data-world-retry>Ещё раз</button></div>'
-    end.querySelector('[data-world-retry]').addEventListener('click', () => this.scene.restart())
+    end.innerHTML = endMarkup('Смена не сдаётся', 'Сердца кончились. Правила на месте — попробуй ещё раз.', false, this.level || 1)
+    bindEnd(end, this.hub, { win: false, stars: 0, retry: () => this.scene.restart() })
     this.sync()
   }
 
@@ -428,6 +583,7 @@ export function mount(root, hub) {
     const btn = event.target.closest('[data-act]')
     if (btn && live) live.choose(btn.dataset.act)
   })
+  let chrome = null
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: root.querySelector('[data-view]'),
@@ -444,6 +600,14 @@ export function mount(root, hub) {
       }
     }
   })
+  chrome = mountChrome(host, {
+    pause: () => game.scene.pause('city'),
+    resume: () => game.scene.resume('city'),
+    retry: () => game.scene.getScene('city')?.scene.restart(),
+    exit: () => requestExit(host, hub),
+    muted: isMuted,
+    toggleSound: toggleMute
+  })
   gsap.from(host.querySelector('.city-splash'), { opacity: 0, duration: 0.3 })
   gsap.to(host.querySelector('.city-splash'), {
     opacity: 0, delay: 0.85, duration: 0.35,
@@ -454,6 +618,7 @@ export function mount(root, hub) {
   })
   return {
     destroy() {
+      chrome?.destroy()
       stopMusic()
       live = null
       game.destroy(true)

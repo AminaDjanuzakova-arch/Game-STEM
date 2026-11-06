@@ -3,7 +3,8 @@
 import Phaser from 'phaser'
 import gsap from 'gsap'
 import { audioContext, beep, isMuted, loop, toggleMute } from '../../audio.js'
-import { cardById } from '../../rewards.js'
+import { itemById, itemsOf } from '../../data/curriculum.js'
+import { award, fault, mentor, mountChrome, endMarkup, bindEnd, requestExit } from '../../shell/shell.js'
 import './style.css'
 
 const ERAS = [
@@ -54,10 +55,11 @@ class TimeScene extends Phaser.Scene {
     live = this
     this.hub = this.game.registry.get('hub')
     this.root = this.game.registry.get('root')
+    this.level = this.hub.level || 1
     this.basket = this.hub.hero.bonus === 'speed' ? 200 : 150
     this.x = 480
     this.items = []
-    this.era = 0
+    this.era = this.level >= 4 ? 0 : Math.min(2, this.level - 1)
     this.caught = 0
     this.need = 3
     this.hp = 4
@@ -66,7 +68,8 @@ class TimeScene extends Phaser.Scene {
     this.bossStep = 0
     this.spawnIn = 0.6
     this.over = ''
-    this.queue = this.buildQueue(0)
+    this.boss = this.level >= 5
+    this.queue = this.buildQueue(this.era)
     this.input.on('pointermove', (pointer) => { this.x = pointer.x })
     this.input.on('pointerdown', (pointer) => { this.x = pointer.x })
     this.net = this.add.graphics()
@@ -85,7 +88,11 @@ class TimeScene extends Phaser.Scene {
 
   buildQueue(index) {
     const era = ERAS[index]
-    const goods = era.goods.slice(0, 3).map((item) => ({ ...item, good: true }))
+    const lessons = itemsOf('time').filter((entry) => entry.level === this.level)
+    const source = lessons.length
+      ? lessons.map((entry) => ({ id: entry.id, label: entry.title }))
+      : era.goods
+    const goods = source.slice(0, 3).map((item) => ({ ...item, good: true }))
     const bads = FAKES.map((label) => ({ id: 'fake', label, good: false }))
     const mix = []
     goods.forEach((item, i) => {
@@ -99,6 +106,10 @@ class TimeScene extends Phaser.Scene {
     const era = ERAS[this.era] || ERAS[0]
     this.cameras.main.setBackgroundColor(this.boss ? 0x111827 : era.sky)
     this.say(this.boss ? 'Босс путает годы. Лови их по порядку.' : 'Эпоха: ' + era.name + '. Лови свои события.')
+    if (this.boss) {
+      const lesson = itemById('timeline')
+      if (lesson) mentor(this.root, lesson.mentor)
+    }
   }
 
   update(_time, delta) {
@@ -155,32 +166,39 @@ class TimeScene extends Phaser.Scene {
     if (item.good) {
       this.caught += 1
       if (item.id !== 'fake') {
-        this.hub.discover(item.id)
-        const card = cardById(item.id)
-        if (card) this.say(card.title + '. ' + card.text)
+        award(this.root, this.hub, item.id)
+        const card = itemById(item.id)
+        if (card) {
+          mentor(this.root, card.mentor)
+          this.say(card.because)
+        }
       }
       beep(523, 0.08, 'triangle', 0.04)
       if (this.boss) {
         this.bossStep += 1
+        if (this.bossStep === 1) award(this.root, this.hub, 'museum')
         if (this.bossStep >= BOSS_ORDER.length) {
-          this.hub.discover('time-boss')
+          award(this.root, this.hub, 'time-boss')
           this.finish(true)
         }
       } else if (this.caught >= this.need) {
-        this.era += 1
-        this.caught = 0
-        if (this.era >= ERAS.length) {
-          this.boss = true
-          this.say('Портал почти закрыт. Лови годы по порядку: 988, 1380, 1703, 1961.')
+        if ((this.level || 1) >= 4 && (this.level || 1) < 5) {
+          this.era += 1
+          this.caught = 0
+          if (this.era >= ERAS.length) this.finish(true)
+          else {
+            this.queue = this.buildQueue(this.era)
+            this.applyEra()
+          }
         } else {
-          this.queue = this.buildQueue(this.era)
-          this.applyEra()
+          this.finish(true)
         }
       }
     } else {
       this.hp -= 1
       this.miss += 1
       this.cameras.main.shake(100, 0.01)
+      fault(this.root, this.hub, this.boss ? 'timeline' : 'century')
       this.say('Это из другой эпохи. Портал сузился.')
       beep(140, 0.12, 'sawtooth', 0.04)
       if (this.hp <= 0) this.finish(false)
@@ -203,13 +221,13 @@ class TimeScene extends Phaser.Scene {
     const end = this.root.querySelector('.time-end')
     end.hidden = false
     end.dataset.worldResult = victory ? 'win' : 'lose'
-    end.innerHTML = victory
-      ? '<div><h2>Портал заперт</h2><p>Звёзды: ' + stars + '. События встали по годам.</p><button type="button" data-world-exit>На глобус</button></div>'
-      : '<div><h2>Портал мигнул</h2><p>Шестерёнки целы. Можно завести машину снова.</p><button type="button" data-world-retry>Ещё раз</button></div>'
-    const exit = end.querySelector('[data-world-exit]')
-    if (exit) exit.addEventListener('click', () => this.hub.finish({ win: true, stars }))
-    const retry = end.querySelector('[data-world-retry]')
-    if (retry) retry.addEventListener('click', () => this.scene.restart())
+    end.innerHTML = endMarkup(
+      victory ? 'Портал заперт' : 'Портал мигнул',
+      victory ? 'Звёзды: ' + stars + '. События встали по годам.' : 'Шестерёнки целы. Можно завести машину снова.',
+      victory,
+      this.level
+    )
+    bindEnd(end, this.hub, { win: victory, stars: victory ? stars : 0, retry: () => this.scene.restart() })
   }
 
   say(text) {
@@ -255,7 +273,16 @@ export function mount(root, hub) {
     toggleMute()
     host.querySelector('[data-mute]').textContent = isMuted() ? 'Тихо' : 'Звук'
   })
-  const game = new Phaser.Game({
+  let game = null
+  const chrome = mountChrome(host, {
+    pause: () => game && game.scene.pause('time'),
+    resume: () => game && game.scene.resume('time'),
+    retry: () => game && game.scene.getScene('time')?.scene.restart(),
+    exit: () => requestExit(host, hub),
+    muted: isMuted,
+    toggleSound: toggleMute
+  })
+  game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: host.querySelector('[data-view]'),
     width: 960,
@@ -280,6 +307,7 @@ export function mount(root, hub) {
   })
   return {
     destroy() {
+      chrome.destroy()
       stopMusic()
       live = null
       game.destroy(true)

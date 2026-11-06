@@ -1,0 +1,74 @@
+.gate { position: relative; height: 100%; min-height: 100%; overflow: hidden; background: #020617; color: white; }
+.gate canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.gate-intro, .gate-pick { position: absolute; inset: 0; pointer-events: none; }
+.gate-intro { display: grid; align-content: end; justify-items: center; padding-bottom: 6vh; text-align: center; }
+.gate-logo {
+  margin: 0 16px 8px;
+  font-size: clamp(32px, 5vw, 64px);
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 24px #67e8f9, 0 8px 0 #0e7490;
+}
+.gate-intro p { max-width: 520px; margin: 0 16px 16px; font-size: 18px; }
+.gate button, .gate input { pointer-events: auto; font: inherit; }
+.gate-play {
+  min-width: 220px;
+  min-height: 74px;
+  border: 0;
+  border-radius: 22px;
+  background: radial-gradient(circle at 30% 20%, #fff, #fbbf24 40%, #f97316);
+  color: #1c1917;
+  font-size: 28px;
+  font-weight: 800;
+  box-shadow: 0 10px 0 #9a3412, 0 0 30px #fbbf24;
+  animation: gate-pulse 1.2s ease-in-out infinite;
+  cursor: pointer;
+}
+@keyframes gate-pulse { 50% { transform: scale(1.06); } }
+.gate-skip {
+  margin-top: 10px;
+  background: transparent;
+  color: white;
+  border: 0;
+  min-height: 44px;
+  font-size: 16px;
+  cursor: pointer;
+}
+.gate-pick { display: grid; grid-template-columns: 280px 1fr 220px; align-items: end; padding: 16px; gap: 12px; }
+.gate-pick[hidden], .gate-intro[hidden] { display: none !important; }
+.gate-box {
+  pointer-events: auto;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.72);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+.gate-box h2 { margin: 0 0 8px; font-size: 22px; }
+.gate-box p { margin: 0 0 8px; }
+.swatches, .choice-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.swatches button, .choice-row button, .gate-nav button, .gate-go {
+  min-height: 48px;
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.swatches button { width: 48px; }
+.swatches button.on, .choice-row button.on { outline: 3px solid white; }
+.choice-row button { background: #1e293b; color: white; padding: 0 10px; }
+.gate-nav { display: flex; justify-content: space-between; pointer-events: none; }
+.gate-nav button { pointer-events: auto; min-width: 120px; background: #f8fafc; color: #0f172a; }
+.gate-go { width: 100%; background: #fbbf24; color: #1c1917; font-size: 20px; }
+.gate input {
+  width: 100%;
+  min-height: 48px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  border: 0;
+  padding: 0 12px;
+  font-size: 18px;
+}
+@media (max-width: 980px), (max-height: 700px) {
+  .gate-pick { grid-template-columns: 1fr 1fr; align-items: start; }
+  .gate-nav { grid-column: 1 / -1; }
+  .gate-logo { font-size: 36px; }
+}

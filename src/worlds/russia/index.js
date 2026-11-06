@@ -3,7 +3,8 @@
 import Phaser from 'phaser'
 import gsap from 'gsap'
 import { audioContext, beep, isMuted, loop, toggleMute } from '../../audio.js'
-import { cardById } from '../../rewards.js'
+import { itemById, itemsOf } from '../../data/curriculum.js'
+import { award, fault, mentor, mountChrome, endMarkup, bindEnd, requestExit } from '../../shell/shell.js'
 import './style.css'
 
 const GATES = [
@@ -33,7 +34,8 @@ class RusScene extends Phaser.Scene {
     this.air = 0
     this.hp = 4
     this.miss = 0
-    this.speed = 240
+    this.level = this.hub.level || 1
+    this.speed = 200 + this.level * 18
     this.jumpV = -620
     this.goal = 4600
     this.boss = false
@@ -44,11 +46,12 @@ class RusScene extends Phaser.Scene {
     this.events = []
     let at = 640
     const pattern = ['jump', 'slide', 'coin', 'jump', 'slide']
-    const coins = ['zone-mixed', 'zone-desert', 'zone-sub', 'city-spb', 'city-moscow', 'city-sochi']
-    for (let i = 0; i < 10; i += 1) {
+    const coins = itemsOf('russia').filter((entry) => entry.level === this.level).map((entry) => entry.id)
+    const count = this.level >= 4 ? 8 : 4 + this.level
+    for (let i = 0; i < count; i += 1) {
       const kind = pattern[i % pattern.length]
-      this.events.push({ at, kind, fact: kind === 'coin' ? coins[i % coins.length] : '', done: false })
-      at += 460
+      this.events.push({ at, kind, fact: kind === 'coin' ? coins[i % Math.max(coins.length, 1)] || '' : '', done: false })
+      at += 420
     }
     this.goal = at + 80
     this.sky = this.add.graphics()
@@ -144,16 +147,20 @@ class RusScene extends Phaser.Scene {
         else beep(700, 0.04, 'square', 0.02)
       }
     })
-    if (this.dist >= this.goal) this.startBoss()
+    if (this.dist >= this.goal && !this.boss) {
+      if (this.level >= 5) this.startBoss()
+      else this.finish(true)
+    }
     this.redraw()
     this.sync()
   }
 
   grab(obstacle) {
     if (!obstacle.fact) return
-    this.hub.discover(obstacle.fact)
-    const card = cardById(obstacle.fact)
-    this.say(card.title + '. ' + card.text)
+    award(this.root, this.hub, obstacle.fact)
+    const card = itemById(obstacle.fact)
+    if (card) mentor(this.root, card.mentor)
+    this.say(card ? card.because : '')
     beep(640, 0.06, 'triangle', 0.03)
   }
 
@@ -175,17 +182,18 @@ class RusScene extends Phaser.Scene {
   resolveGate() {
     const gate = GATES[this.gate]
     if (this.lane === gate.lane) {
-      this.hub.discover(gate.fact)
-      const card = cardById(gate.fact)
-      this.say(card.title + '. ' + card.text)
+      award(this.root, this.hub, gate.fact)
+      const card = itemById(gate.fact)
+      this.say(card ? card.because : gate.label)
       beep(760, 0.08, 'square', 0.04)
       this.gate += 1
       if (this.gate >= GATES.length) {
-        this.hub.discover('rus-boss')
+        award(this.root, this.hub, 'rus-boss')
         this.finish(true)
         return
       }
     } else {
+      fault(this.root, this.hub, gate.fact)
       this.hurt('Эти ворота ведут не в ту зону.')
       if (this.over) return
     }
@@ -232,15 +240,19 @@ class RusScene extends Phaser.Scene {
     const end = this.root.querySelector('.rus-end')
     end.hidden = false
     end.dataset.worldResult = victory ? 'win' : 'lose'
-    end.innerHTML = victory
-      ? '<div><h2>Финиш на карте</h2><p>Звёзды: ' + stars + '. Зоны легли с севера на юг.</p><button type="button" data-world-exit>На глобус</button></div>'
-      : '<div><h2>Привал</h2><p>Лапы заплелись. Тропа на месте.</p><button type="button" data-world-retry>Ещё круг</button></div>'
-    const exit = end.querySelector('[data-world-exit]')
-    if (exit) exit.addEventListener('click', () => this.hub.finish({ win: true, stars }))
-    const retry = end.querySelector('[data-world-retry]')
-    if (retry) retry.addEventListener('click', () => {
-      this.root.querySelector('.pick-runner').hidden = false
-      this.scene.restart()
+    end.innerHTML = endMarkup(
+      victory ? 'Финиш на карте' : 'Привал',
+      victory ? 'Звёзды: ' + stars + '. Зоны легли с севера на юг.' : 'Лапы заплелись. Тропа на месте.',
+      victory,
+      this.level
+    )
+    bindEnd(end, this.hub, {
+      win: victory,
+      stars: victory ? stars : 0,
+      retry: () => {
+        this.root.querySelector('.pick-runner').hidden = false
+        this.scene.restart()
+      }
     })
   }
 
@@ -318,7 +330,19 @@ export function mount(root, hub) {
     if (live) live.begin(btn.dataset.runner)
     host.dataset.ready = '1'
   }))
-  const game = new Phaser.Game({
+  let game = null
+  const chrome = mountChrome(host, {
+    pause: () => game && game.scene.pause('rus'),
+    resume: () => game && game.scene.resume('rus'),
+    retry: () => {
+      host.querySelector('.pick-runner').hidden = false
+      game && game.scene.getScene('rus')?.scene.restart()
+    },
+    exit: () => requestExit(host, hub),
+    muted: isMuted,
+    toggleSound: toggleMute
+  })
+  game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: host.querySelector('[data-view]'),
     width: 960,
@@ -337,6 +361,7 @@ export function mount(root, hub) {
   gsap.from('.pick-runner button', { y: 12, opacity: 0, stagger: 0.08, duration: 0.3 })
   return {
     destroy() {
+      chrome.destroy()
       stopMusic()
       live = null
       game.destroy(true)

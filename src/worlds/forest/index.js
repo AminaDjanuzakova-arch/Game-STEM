@@ -4,7 +4,8 @@
 import Phaser from 'phaser'
 import gsap from 'gsap'
 import { audioContext, beep, isMuted, loop, toggleMute } from '../../audio.js'
-import { cardById } from '../../rewards.js'
+import { itemById, itemsOf } from '../../data/curriculum.js'
+import { award, fault, mentor, mountChrome, endMarkup, bindEnd, requestExit } from '../../shell/shell.js'
 import './style.css'
 
 function face(kind) {
@@ -32,6 +33,10 @@ class ForestScene extends Phaser.Scene {
     live = this
     this.hub = this.game.registry.get('hub')
     this.root = this.game.registry.get('root')
+    this.level = this.hub.level || 1
+    this.needWaves = this.level >= 5 ? 3 : this.level >= 3 ? 2 : 1
+    this.lessons = itemsOf('forest').filter((entry) => entry.level === this.level)
+    this.lessonAt = 0
     this.money = 100 + (this.hub.hero.bonus === 'hp' ? 20 : 0)
     this.den = 5
     this.wave = 0
@@ -86,15 +91,17 @@ class ForestScene extends Phaser.Scene {
     if (this.spawnLeft > 0) {
       this.spawnEvery -= dt
       if (this.spawnEvery <= 0) {
-        this.spawnEvery = this.wave === 3 ? 0.55 : 0.9
+        const bossWave = this.level >= 5 && this.wave === this.needWaves
+        this.spawnEvery = bossWave ? 0.55 : 0.9
         this.spawnLeft -= 1
-        this.spawnBlob(this.wave === 3 && this.spawnLeft === 0 ? 'boss' : 'slime')
+        this.spawnBlob(bossWave && this.spawnLeft === 0 ? 'boss' : 'slime')
       }
     }
     const towers = this.towers().filter((tower) => this.linked(tower))
     this.blobs.forEach((blob) => {
       if (!blob.alive) return
-      blob.x += (this.wave === 3 ? 70 : 56) * dt
+      const bossWave = this.level >= 5 && this.wave === this.needWaves
+      blob.x += (bossWave ? 70 : 46 + this.level * 4) * dt
       blob.sprite.x = blob.x
       if (blob.x > 860) {
         blob.alive = false
@@ -128,14 +135,14 @@ class ForestScene extends Phaser.Scene {
     this.blobs = this.blobs.filter((blob) => blob.alive)
     if (this.running && this.spawnLeft <= 0 && this.blobs.length === 0) {
       this.running = false
-      if (this.wave >= 3) this.finish(true)
+      if (this.wave >= this.needWaves) this.finish(true)
       else this.time.delayedCall(700, () => this.startWave())
     }
     this.sync()
   }
 
   spawnBlob(kind) {
-    const hp = kind === 'boss' ? 220 : 16 + this.wave * 6
+    const hp = kind === 'boss' ? 180 + this.level * 12 : 14 + this.wave * 5 + this.level * 2
     const sprite = this.add.container(40, 264)
     const face = this.add.graphics()
     face.fillStyle(kind === 'boss' ? 0x3f3f46 : 0x64748b, 0.9)
@@ -157,9 +164,9 @@ class ForestScene extends Phaser.Scene {
 
   grantBuff() {
     this.buff = 4
-    this.hub.discover('chain-rot')
-    const card = cardById('chain-rot')
-    this.say(card.text)
+    award(this.root, this.hub, 'chain-rot')
+    const card = itemById('chain-rot')
+    this.say(card.because)
     beep(520, 0.08, 'triangle', 0.04)
   }
 
@@ -205,14 +212,20 @@ class ForestScene extends Phaser.Scene {
     node.innerHTML = face(kind) + '<span>' + info.title + (ok ? '' : ' вянет') + '</span>'
     if (!ok) {
       this.miss += 1
+      fault(this.root, this.hub, kind === 'fox' ? 'chain-fox' : 'chain-hare')
       this.say(kind === 'fox'
         ? 'Лиса не стоит в начале. Сначала трава, потом заяц, и только потом лиса.'
         : 'Зайцу нужна трава на соседней поляне.')
       beep(180, 0.15, 'triangle', 0.04)
     } else {
-      this.hub.discover(info.fact)
-      const card = cardById(info.fact)
-      this.say(card.text)
+      award(this.root, this.hub, info.fact)
+      const extra = this.lessons[this.lessonAt]
+      if (extra) {
+        this.lessonAt += 1
+        if (extra.id !== info.fact) award(this.root, this.hub, extra.id)
+      }
+      const card = itemById(info.fact)
+      this.say(card ? card.because : info.title)
       beep(520, 0.08, 'sine', 0.04)
     }
     this.paintLinks()
@@ -240,9 +253,12 @@ class ForestScene extends Phaser.Scene {
     }
     this.wave += 1
     this.running = true
-    this.spawnLeft = this.wave === 3 ? 1 : 4 + this.wave
     this.spawnEvery = 0.4
-    this.say(this.wave === 3 ? 'Босс — туча копоти. Держите цепь!' : 'Волна ' + this.wave + ' ползёт к дуплу.')
+    const lesson = this.lessons[0]
+    if (lesson) mentor(this.root, lesson.mentor)
+    const bossWave = this.level >= 5 && this.wave === this.needWaves
+    this.spawnLeft = bossWave ? 1 : 3 + Math.min(this.level, 3)
+    this.say(bossWave ? 'Босс — туча копоти. Держите цепь!' : 'Волна ' + this.wave + ' ползёт к дуплу.')
     beep(300, 0.1, 'sine', 0.04)
     this.sync()
   }
@@ -255,14 +271,14 @@ class ForestScene extends Phaser.Scene {
     end.hidden = false
     end.dataset.worldResult = victory ? 'win' : 'lose'
     const stars = this.miss <= 1 ? 3 : this.miss <= 3 ? 2 : 1
-    end.innerHTML = victory
-      ? '<div><h2>Лес дышит</h2><p>Звёзды: ' + stars + '. Цепь устояла, дупло цело.</p><button type="button" data-world-exit>На глобус</button></div>'
-      : '<div><h2>Дупло в копоти</h2><p>Цепь можно собрать заново. Лес подождёт.</p><button type="button" data-world-retry>Ещё раз</button></div>'
+    end.innerHTML = endMarkup(
+      victory ? 'Лес дышит' : 'Дупло в копоти',
+      victory ? 'Звёзды: ' + stars + '. Цепь устояла, дупло цело.' : 'Цепь можно собрать заново. Лес подождёт.',
+      victory,
+      this.level
+    )
     gsap.from(end, { y: 20, duration: 0.3 })
-    const exit = end.querySelector('[data-world-exit]')
-    if (exit) exit.addEventListener('click', () => this.hub.finish({ win: true, stars }))
-    const retry = end.querySelector('[data-world-retry]')
-    if (retry) retry.addEventListener('click', () => this.scene.restart())
+    bindEnd(end, this.hub, { win: victory, stars: victory ? stars : 0, retry: () => this.scene.restart() })
     this.sync()
   }
 
@@ -320,7 +336,16 @@ export function mount(root, hub) {
     if (live) live.place(Number(btn.dataset.plot), seed)
   }))
   host.querySelector('[data-wave]').addEventListener('click', () => { if (live) live.startWave() })
-  const game = new Phaser.Game({
+  let game = null
+  const chrome = mountChrome(host, {
+    pause: () => game && game.scene.pause('forest'),
+    resume: () => game && game.scene.resume('forest'),
+    retry: () => game && game.scene.getScene('forest')?.scene.restart(),
+    exit: () => requestExit(host, hub),
+    muted: isMuted,
+    toggleSound: toggleMute
+  })
+  game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: host.querySelector('[data-view]'),
     width: 960,
@@ -345,6 +370,7 @@ export function mount(root, hub) {
   })
   return {
     destroy() {
+      chrome.destroy()
       stopMusic()
       live = null
       game.destroy(true)

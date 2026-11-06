@@ -2,9 +2,17 @@
    Корабль держит курс за пальцем. Планеты — трофеи, астероиды — урон.
    Босс — чёрная дыра: собери 3 маяка и не ныряй в ядро. */
 import * as THREE from 'three'
+import { PMREMGenerator } from 'three'
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import gsap from 'gsap'
 import { audioContext, beep, isMuted, loop, toggleMute } from '../../audio.js'
-import { cardById } from '../../rewards.js'
+import { itemById } from '../../data/curriculum.js'
+import { award, mentor, mountChrome, endMarkup, bindEnd, requestExit } from '../../shell/shell.js'
+import { pixelRatio, qualityTier } from '../../engine/quality.js'
 import './style.css'
 
 const PLANETS = [
@@ -18,12 +26,29 @@ const PLANETS = [
   { id: 'neptune', name: 'Нептун', color: 0x2563eb }
 ]
 
-function buildCourse() {
+function buildCourse(level) {
+  const packs = {
+    1: ['sun', 'mercury', 'venus', 'earth'],
+    2: ['moon', 'daynight', 'seasons'],
+    3: ['mars', 'jupiter', 'saturn'],
+    4: ['uranus', 'neptune', 'pluto', 'order'],
+    5: ['earth', 'jupiter']
+  }
+  const extra = {
+    sun: { id: 'sun', name: 'Солнце', color: 0xfde047 },
+    moon: { id: 'moon', name: 'Луна', color: 0xe2e8f0 },
+    daynight: { id: 'daynight', name: 'День и ночь', color: 0x1e3a8a },
+    seasons: { id: 'seasons', name: 'Времена года', color: 0x4ade80 },
+    pluto: { id: 'pluto', name: 'Плутон', color: 0xd6d3d1 },
+    order: { id: 'order', name: 'Порядок планет', color: 0xf472b6 }
+  }
+  const catalog = Object.fromEntries(PLANETS.map((planet) => [planet.id, planet]))
+  const order = (packs[level] || packs[1]).map((id) => catalog[id] || extra[id])
   const list = []
   let z = 36
-  const order = PLANETS.slice().sort(() => Math.random() - 0.5)
+  const rocks = level >= 4 ? 3 : level === 1 ? 1 : 2
   order.forEach((planet, index) => {
-    for (let i = 0; i < 3; i += 1) {
+    for (let i = 0; i < rocks; i += 1) {
       const side = (i + index) % 2 === 0 ? -1 : 1
       list.push({
         kind: 'rock',
@@ -47,7 +72,7 @@ function buildCourse() {
     })
     z += 30
   })
-  list.push({ kind: 'boss-gate', z: z + 10, x: 0, y: 0, r: 1 })
+  if (level >= 5) list.push({ kind: 'boss-gate', z: z + 10, x: 0, y: 0, r: 1 })
   return { list, bossAt: z + 10 }
 }
 
@@ -80,19 +105,27 @@ export function mount(root, hub) {
   })
 
   const canvas = host.querySelector('[data-view]')
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
+  const high = qualityTier() === 'high'
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: high })
+  renderer.setPixelRatio(pixelRatio())
   renderer.outputColorSpace = THREE.SRGBColorSpace
+  renderer.toneMapping = THREE.ACESFilmicToneMapping
   const scene = new THREE.Scene()
   scene.fog = new THREE.FogExp2(0x07010f, 0.035)
   const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 200)
   camera.position.set(0, 1.4, 8)
-  scene.add(new THREE.AmbientLight(0x8899ff, 0.6))
-  const key = new THREE.PointLight(0x22d3ee, 30, 40)
+  const pmrem = new PMREMGenerator(renderer)
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+  scene.add(new THREE.AmbientLight(0x8899ff, 0.35))
+  const key = new THREE.DirectionalLight(0xe0f2fe, 2)
+  key.position.set(4, 6, 8)
   scene.add(key)
-  const pink = new THREE.PointLight(0xf472b6, 20, 30)
+  const pink = new THREE.PointLight(0xf472b6, 18, 30)
   pink.position.set(0, -2, -6)
   scene.add(pink)
+  const rim = new THREE.DirectionalLight(0x22d3ee, 1.2)
+  rim.position.set(-4, 2, -6)
+  scene.add(rim)
 
   const stars = new THREE.Points(
     new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(starPositions(), 3)),
@@ -111,10 +144,22 @@ export function mount(root, hub) {
     new THREE.MeshStandardMaterial({ color: 0x67e8f9, emissive: 0x0891b2, emissiveIntensity: 0.6, roughness: 0.2 })
   )
   cabin.position.set(0, 0.12, 0.1)
-  ship.add(hull, cabin)
+  const ear = new THREE.Mesh(
+    new THREE.ConeGeometry(0.08, 0.18, 6),
+    new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.5 })
+  )
+  ear.position.set(0.12, 0.28, 0.05)
+  const flame = new THREE.Mesh(
+    new THREE.ConeGeometry(0.12, 0.35, 8),
+    new THREE.MeshStandardMaterial({ color: 0xfb7185, emissive: 0xf97316, emissiveIntensity: 1.2, roughness: 0.3 })
+  )
+  flame.rotation.x = Math.PI / 2
+  flame.position.z = 0.7
+  ship.add(hull, cabin, ear, flame)
   scene.add(ship)
 
-  const course = buildCourse()
+  const level = hub.level || 1
+  const course = buildCourse(level)
   const meshes = course.list.map((item) => {
     let mesh
     if (item.kind === 'rock') {
@@ -185,13 +230,23 @@ export function mount(root, hub) {
     miss: 0,
     found: [],
     over: '',
-    speed: hub.hero.bonus === 'speed' ? 24 : 18
+    speed: (hub.hero.bonus === 'speed' ? 24 : 18) * (0.75 + level * 0.08),
+    level
+  }
+  let paused = false
+  let composer = null
+  if (high) {
+    composer = new EffectComposer(renderer)
+    composer.addPass(new RenderPass(scene, camera))
+    composer.addPass(new UnrealBloomPass(new THREE.Vector2(320, 180), 0.45, 0.5, 0.85))
+    composer.addPass(new OutputPass())
   }
 
   function resize() {
     const width = canvas.clientWidth || 800
     const height = canvas.clientHeight || 450
     renderer.setSize(width, height, false)
+    if (composer) composer.setSize(width, height)
     camera.aspect = width / Math.max(height, 1)
     camera.updateProjectionMatrix()
   }
@@ -217,8 +272,9 @@ export function mount(root, hub) {
     frame = requestAnimationFrame(tick)
     const dt = Math.min(0.033, (now - last) / 1000)
     last = now
-    if (state.over) {
-      renderer.render(scene, camera)
+    if (paused || state.over) {
+      if (composer) composer.render()
+      else renderer.render(scene, camera)
       return
     }
     state.hurt = Math.max(0, state.hurt - dt)
@@ -253,7 +309,7 @@ export function mount(root, hub) {
         const rel = item.z - state.progress
         item.mesh.position.z = -rel
         item.mesh.rotation.y += dt
-        if (item.kind === 'boss-gate' && rel < 6) startBoss()
+        if (item.kind === 'boss-gate' && rel < 6 && state.level >= 5) startBoss()
         if (rel < 1.4 && rel > -1) {
           const dist = Math.hypot(state.x - item.x, state.y - item.y)
           if (item.kind === 'rock' && dist < item.r + 0.45) hit(item)
@@ -261,15 +317,19 @@ export function mount(root, hub) {
         }
         if (rel < -4) item.mesh.visible = false
       })
+      if (state.level < 5 && state.progress > course.bossAt) win()
     }
     ship.position.set(state.x, state.y, 0)
     ship.rotation.z = (state.tx - state.x) * -0.4
-    camera.position.x = state.x * 0.35
+    const shake = state.hurt > 0.6 ? (Math.random() - 0.5) * 0.12 : 0
+    camera.position.x = state.x * 0.35 + shake
     camera.position.y = 1.3 + state.y * 0.2
     camera.lookAt(state.x, state.y, -12)
     key.position.set(state.x, state.y, 2)
     publish()
-    renderer.render(scene, camera)
+    flame.scale.y = 0.8 + Math.random() * 0.4
+    if (composer) composer.render()
+    else renderer.render(scene, camera)
   }
 
   function hit(item) {
@@ -282,7 +342,7 @@ export function mount(root, hub) {
       item.gone = true
       item.mesh.visible = false
     }
-    say('Пробоина! Уводи корабль в сторону.')
+    say('Пробоина! Камень обходят, к планете подлетают ближе.')
     if (state.hp <= 0) lose()
   }
 
@@ -290,9 +350,9 @@ export function mount(root, hub) {
     item.gone = true
     item.mesh.visible = false
     state.found.push(item.name)
-    hub.discover(item.id)
-    const card = cardById(item.id)
-    host.querySelector('.space-fact').textContent = item.name + '. ' + (card ? card.text : '')
+    award(host, hub, item.id)
+    const card = itemById(item.id)
+    host.querySelector('.space-fact').textContent = item.name + '. ' + (card ? card.because : '')
     say('Трофей: ' + item.name)
     beep(660, 0.08, 'square', 0.04)
   }
@@ -303,7 +363,9 @@ export function mount(root, hub) {
     hole.visible = true
     beacons.forEach((beacon) => { beacon.mesh.visible = true })
     meshes.forEach((item) => { item.mesh.visible = false })
-    hub.discover('space-boss')
+    const lesson = itemById('space-boss')
+    if (lesson) mentor(host, lesson.mentor)
+    award(host, hub, 'space-boss')
     say('Чёрная дыра! Держись у жёлтых маяков, не у центра.')
   }
 
@@ -325,15 +387,9 @@ export function mount(root, hub) {
     const end = host.querySelector('.space-end')
     end.hidden = false
     end.dataset.worldResult = kind
-    end.innerHTML = '<div><h2>' + title + '</h2><p>' + text + '</p>' +
-      (victory
-        ? '<button type="button" data-world-exit>На глобус</button>'
-        : '<button type="button" data-world-retry>Ещё заход</button>') + '</div>'
+    end.innerHTML = endMarkup(title, text, victory, state.level)
     gsap.from(end, { scale: 1.04, duration: 0.3 })
-    const exit = end.querySelector('[data-world-exit]')
-    if (exit) exit.addEventListener('click', () => hub.finish({ win: true, stars: starsCount() }))
-    const retry = end.querySelector('[data-world-retry]')
-    if (retry) retry.addEventListener('click', restart)
+    bindEnd(end, hub, { win: victory, stars: victory ? starsCount() : 0, retry: restart })
   }
   function restart() {
     state.progress = 0
@@ -405,15 +461,30 @@ export function mount(root, hub) {
     onComplete: () => {
       host.querySelector('.space-splash').hidden = true
       host.dataset.ready = '1'
+      const first = course.list.find((item) => item.kind === 'planet')
+      const lesson = first ? itemById(first.id) : null
+      if (lesson) mentor(host, lesson.mentor)
       frame = requestAnimationFrame(tick)
     }
+  })
+  const chrome = mountChrome(host, {
+    pause: () => { paused = true },
+    resume: () => { paused = false },
+    retry: restart,
+    exit: () => requestExit(host, hub),
+    muted: isMuted,
+    toggleSound: toggleMute
   })
 
   function destroy() {
     alive = false
     cancelAnimationFrame(frame)
     window.removeEventListener('resize', resize)
+    chrome.destroy()
     stopMusic()
+    scene.environment?.dispose?.()
+    pmrem.dispose()
+    composer?.dispose()
     renderer.dispose()
     delete window.__guardian
   }

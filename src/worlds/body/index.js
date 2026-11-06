@@ -3,10 +3,9 @@
 import Phaser from 'phaser'
 import gsap from 'gsap'
 import { audioContext, beep, isMuted, loop, toggleMute } from '../../audio.js'
-import { cardById } from '../../rewards.js'
+import { itemById, itemsOf } from '../../data/curriculum.js'
+import { award, mentor, mountChrome, endMarkup, bindEnd, requestExit } from '../../shell/shell.js'
 import './style.css'
-
-const FACTS = ['heart', 'lungs', 'brain', 'stomach', 'bones', 'skin']
 let live = null
 
 class BodyScene extends Phaser.Scene {
@@ -16,6 +15,9 @@ class BodyScene extends Phaser.Scene {
     live = this
     this.hub = this.game.registry.get('hub')
     this.root = this.game.registry.get('root')
+    this.level = this.hub.level || 1
+    this.factIds = itemsOf('body').filter((entry) => entry.level === this.level).map((entry) => entry.id)
+    this.need = this.level >= 5 ? 6 : Math.max(3, this.factIds.length)
     this.aimY = 270
     this.subY = 270
     this.oxy = this.hub.hero.bonus === 'hp' ? 120 : 100
@@ -74,17 +76,20 @@ class BodyScene extends Phaser.Scene {
   update(_time, delta) {
     if (this.over || this.root.dataset.ready !== '1') return
     const dt = Math.min(0.05, delta / 1000)
-    this.oxy -= 4 * dt
+    this.oxy -= (3 + this.level) * dt
     this.subY += (this.aimY - this.subY) * Math.min(1, dt * 6)
     this.sub.y = this.subY
     this.cool -= dt
     if ((this.firing || this.input.activePointer.isDown) && this.cool <= 0) this.fire()
     this.spawn -= dt
-    if (this.spawn <= 0 && !this.boss && this.kills < 10) {
+    if (this.spawn <= 0 && !this.boss && this.kills < this.need) {
       this.spawn = 0.85
       this.germs.push(this.makeGerm(900, 80 + Math.random() * 380, false))
     }
-    if (!this.boss && this.kills >= 10) this.summon()
+    if (!this.boss && this.kills >= this.need) {
+      if (this.level >= 5) this.summon()
+      else this.finish(true)
+    }
     if (Math.random() < dt * 0.9) this.bubbles.push(this.makeBubble(880, this.subY + (Math.random() * 70 - 35)))
     this.shots.forEach((shot) => {
       shot.x += 520 * dt
@@ -148,12 +153,13 @@ class BodyScene extends Phaser.Scene {
     germ.sprite.destroy()
     if (germ.boss) return
     this.kills += 1
-    if (this.kills % 2 === 0 && this.saved < FACTS.length) {
-      const id = FACTS[this.saved]
+    if (this.saved < this.factIds.length) {
+      const id = this.factIds[this.saved]
       this.saved += 1
-      this.hub.discover(id)
-      const card = cardById(id)
-      this.say(card.title + '. ' + card.text)
+      award(this.root, this.hub, id)
+      const card = itemById(id)
+      if (this.saved === 1 && card) mentor(this.root, card.mentor)
+      this.say(card ? card.because : '')
       beep(660, 0.08, 'triangle', 0.04)
     }
   }
@@ -162,7 +168,9 @@ class BodyScene extends Phaser.Scene {
     this.boss = this.makeGerm(820, 270, true)
     this.germs.push(this.boss)
     this.say('Вирус-босс. Держи лодку на его высоте и не отпускай выстрел.')
-    this.hub.discover('body-boss')
+    award(this.root, this.hub, 'body-boss')
+    const lesson = itemById('body-boss')
+    if (lesson) mentor(this.root, lesson.mentor)
   }
 
   hurt(text) {
@@ -201,13 +209,13 @@ class BodyScene extends Phaser.Scene {
     const end = this.root.querySelector('.body-end')
     end.hidden = false
     end.dataset.worldResult = victory ? 'win' : 'lose'
-    end.innerHTML = victory
-      ? '<div><h2>Органы улыбаются</h2><p>Звёзды: ' + stars + '. Сундук с привычками открыт.</p><button type="button" data-world-exit>На глобус</button></div>'
-      : '<div><h2>Всплытие</h2><p>' + (reason || 'Ещё один заход.') + '</p><button type="button" data-world-retry>Ещё раз</button></div>'
-    const exit = end.querySelector('[data-world-exit]')
-    if (exit) exit.addEventListener('click', () => this.hub.finish({ win: true, stars }))
-    const retry = end.querySelector('[data-world-retry]')
-    if (retry) retry.addEventListener('click', () => this.scene.restart())
+    end.innerHTML = endMarkup(
+      victory ? 'Органы улыбаются' : 'Всплытие',
+      victory ? 'Звёзды: ' + stars + '. Сундук с привычками открыт.' : (reason || 'Ещё один заход.'),
+      victory,
+      this.level
+    )
+    bindEnd(end, this.hub, { win: victory, stars: victory ? stars : 0, retry: () => this.scene.restart() })
   }
 
   say(text) {
@@ -220,7 +228,7 @@ class BodyScene extends Phaser.Scene {
     if (bar) bar.style.width = Math.max(0, this.oxy) + '%'
     const pips = this.root.querySelector('.organ-pips')
     if (pips) {
-      pips.innerHTML = FACTS.map((_, index) => '<i class="' + (index < this.saved ? 'on' : '') + '"></i>').join('')
+      pips.innerHTML = this.factIds.map((_, index) => '<i class="' + (index < this.saved ? 'on' : '') + '"></i>').join('')
     }
     window.__guardian = {
       world: 'body',
@@ -257,7 +265,16 @@ export function mount(root, hub) {
     toggleMute()
     host.querySelector('[data-mute]').textContent = isMuted() ? 'Тихо' : 'Звук'
   })
-  const game = new Phaser.Game({
+  let game = null
+  const chrome = mountChrome(host, {
+    pause: () => game && game.scene.pause('body'),
+    resume: () => game && game.scene.resume('body'),
+    retry: () => game && game.scene.getScene('body')?.scene.restart(),
+    exit: () => requestExit(host, hub),
+    muted: isMuted,
+    toggleSound: toggleMute
+  })
+  game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: host.querySelector('[data-view]'),
     width: 960,
@@ -282,6 +299,7 @@ export function mount(root, hub) {
   })
   return {
     destroy() {
+      chrome.destroy()
       stopMusic()
       live = null
       game.destroy(true)
