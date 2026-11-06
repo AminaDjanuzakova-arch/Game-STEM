@@ -1,0 +1,26 @@
+.world-time {
+  position: fixed; inset: 0; color: #fef3c7;
+  background: radial-gradient(circle at 50% 0%, #78350f, #1c1917 60%);
+  font-family: "Times New Roman", Times, serif;
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.world-time * { box-sizing: border-box; }
+.world-time [hidden] { display: none !important; }
+.time-top, .time-bottom { display: flex; gap: 10px; align-items: center; padding: 8px 12px; }
+.time-top h1 { margin: 0; font-size: 24px; letter-spacing: 0.03em; }
+.time-mute, .time-end button {
+  border: 2px solid #fbbf24; background: #451a03; color: #fde68a; min-height: 42px; padding: 6px 12px;
+  font-family: inherit; font-weight: 700;
+}
+.time-stage { position: relative; min-height: 0; }
+.time-stage canvas { width: 100%; height: 100%; display: block; }
+.portal-meter { flex: 1; height: 12px; background: #44403c; border-radius: 99px; overflow: hidden; }
+.portal-meter b { display: block; height: 100%; width: 0; background: #fbbf24; }
+.time-speech { margin: 0; font-size: 18px; }
+.time-splash, .time-end {
+  position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; text-align: center;
+  background: rgba(28, 25, 23, 0.9);
+}
+.time-end h2, .time-splash h2 { font-size: 40px; margin: 0; color: #fbbf24; }
+.gears i { display: inline-block; width: 14px; height: 14px; margin-left: 4px; border: 3px solid #fbbf24; border-radius: 50%; }
+.gears i.off { opacity: 0.25; }

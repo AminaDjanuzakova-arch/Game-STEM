@@ -1,0 +1,44 @@
+.world-forest {
+  position: fixed; inset: 0; color: #14532d;
+  background: linear-gradient(#ecfccb, #bbf7d0 40%, #86efac);
+  font-family: Georgia, "Palatino Linotype", serif;
+  display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+.world-forest * { box-sizing: border-box; }
+.world-forest [hidden] { display: none !important; }
+.forest-top, .forest-tray {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+}
+.forest-top h1 { margin: 0; font-size: 22px; font-weight: 700; }
+.forest-mute, .seed, .wave, .forest-end button {
+  border: 2px solid #166534; background: #f0fdf4; color: #14532d; border-radius: 18px;
+  min-height: 48px; padding: 6px 10px; font-family: inherit; font-weight: 700;
+}
+.seed, .plots button { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.seed svg, .plots svg { width: 42px; height: 24px; flex: 0 0 auto; }
+.seed.on { background: #166534; color: #ecfccb; }
+.wave { background: #fde68a; }
+.forest-stage { position: relative; min-height: 0; overflow: hidden; z-index: 0; }
+.plots { position: relative; z-index: 2; }
+.forest-stage canvas { width: 100%; height: 100%; display: block; }
+.plots {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 8px;
+}
+.plots button {
+  min-height: 72px; border-radius: 20px; border: 2px dashed #166534; background: rgba(255,255,255,0.55);
+  font-family: inherit; color: #14532d; font-size: 16px;
+}
+.plots button.live { border-style: solid; background: #dcfce7; }
+.plots button.wilt { background: #d6d3d1; color: #57534e; transform: rotate(-2deg); }
+.forest-speech { margin: 0; font-size: 16px; }
+.forest-splash, .forest-end {
+  position: absolute; inset: 0; display: grid; place-items: center; text-align: center; z-index: 2;
+  background: radial-gradient(circle at 50% 30%, rgba(236,252,203,0.95), rgba(22,101,52,0.92));
+  color: #052e16;
+}
+.forest-end h2, .forest-splash h2 { margin: 0; font-size: 36px; }
+.den { font-weight: 700; }
+@media (max-height: 700px) {
+  .plots button { min-height: 56px; }
+  .forest-top h1 { font-size: 18px; }
+}

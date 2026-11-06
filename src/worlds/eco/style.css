@@ -1,0 +1,35 @@
+.world-eco {
+  position: fixed; inset: 0; color: #3b0764;
+  background: repeating-linear-gradient(45deg, #fbcfe8 0 18px, #fde68a 18px 36px);
+  font-family: "Arial Black", Impact, "Segoe UI", sans-serif;
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.world-eco * { box-sizing: border-box; }
+.world-eco [hidden] { display: none !important; }
+.eco-top { display: flex; gap: 8px; align-items: center; padding: 8px 10px; background: #fff; }
+.eco-top h1 { margin: 0; font-size: 20px; text-transform: uppercase; }
+.eco-mute, .bins button, .eco-end button {
+  border: 3px solid #111827; background: #fff; min-height: 64px; font-weight: 900; font-family: inherit;
+  box-shadow: 6px 6px 0 #111827;
+}
+.eco-mute { min-height: 40px; padding: 4px 8px; }
+.eco-stage { position: relative; min-height: 0; background: #e0f2fe; }
+.eco-stage canvas { width: 100%; height: 100%; display: block; }
+.bins { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; padding: 8px; background: #fdf2f8; }
+.bins button { font-size: 14px; }
+.bin-paper { background: #bfdbfe; }
+.bin-plastic { background: #fde047; }
+.bin-glass { background: #bbf7d0; }
+.bin-food { background: #fdba74; }
+.bin-hazard { background: #fda4af; }
+.bin-animal { background: #ddd6fe; }
+.eco-speech { margin: 0; font-family: Verdana, sans-serif; font-weight: 700; }
+.combo { font-size: 22px; }
+.eco-splash, .eco-end {
+  position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; text-align: center;
+  background: rgba(131, 24, 67, 0.88); color: white;
+}
+.eco-end h2, .eco-splash h2 { margin: 0; font-size: 40px; text-transform: uppercase; }
+@media (max-height: 700px) {
+  .bins button { min-height: 48px; font-size: 13px; }
+}

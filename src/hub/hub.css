@@ -1,0 +1,85 @@
+.hub {
+  height: 100dvh; display: flex; flex-direction: column; color: #f8f5ff;
+  background:
+    radial-gradient(900px 420px at 50% -10%, rgba(251, 191, 36, 0.35), transparent 60%),
+    linear-gradient(180deg, #1e1b4b 0%, #312e81 42%, #0f172a 100%);
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  overflow: hidden;
+}
+.hub * { box-sizing: border-box; }
+.hub button { font-family: inherit; cursor: pointer; }
+.hub-top, .hub-bottom {
+  display: flex; align-items: center; gap: 12px; padding: 8px 14px;
+}
+.hub h1 { margin: 0; font-size: 22px; letter-spacing: 0.02em; }
+.hub-top p, .hub-note { margin: 0; color: #ddd6fe; font-size: 14px; }
+.hub-stat { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.pill {
+  background: rgba(255, 255, 255, 0.12); border-radius: 999px; padding: 6px 10px; font-weight: 800;
+}
+.hub-mute, .linkish {
+  border: 0; border-radius: 999px; min-height: 40px; padding: 6px 12px; font-weight: 800;
+  background: #fbbf24; color: #422006;
+}
+.linkish { background: transparent; color: #fde68a; border: 2px solid #fbbf24; }
+.hub-stage { flex: 1; min-height: 0; display: grid; grid-template-columns: 280px 1fr; gap: 8px; padding: 0 12px; }
+.globe-wrap { position: relative; min-height: 0; }
+.globe-wrap canvas { width: 100%; height: 100%; display: block; }
+.story {
+  position: absolute; left: 8px; bottom: 8px; max-width: 260px; background: rgba(15, 23, 42, 0.72);
+  border-radius: 16px; padding: 10px 12px; font-size: 14px; line-height: 1.35;
+}
+.portal-grid {
+  min-height: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: minmax(96px, 1fr); gap: 8px; align-content: stretch;
+}
+.portal {
+  border: 0; border-radius: 18px; text-align: left; padding: 8px 10px; color: #1e1b4b;
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 2px;
+  box-shadow: inset 0 0 0 3px rgba(255,255,255,0.45), 0 8px 0 rgba(0,0,0,0.18);
+  min-height: 92px;
+}
+.portal b { font-size: 15px; line-height: 1.15; }
+.portal small { font-weight: 700; opacity: 0.8; }
+.portal i { font-style: normal; font-size: 12px; font-weight: 800; }
+.portal.done { box-shadow: inset 0 0 0 3px #fbbf24, 0 8px 0 rgba(0,0,0,0.18); }
+.p-city { background: linear-gradient(160deg, #fde68a, #fb7185); }
+.p-space { background: linear-gradient(160deg, #22d3ee, #4c1d95); color: #ecfeff; }
+.p-forest { background: linear-gradient(160deg, #d9f99d, #15803d); color: #052e16; }
+.p-body { background: linear-gradient(160deg, #99f6e4, #0f766e); color: #042f2e; }
+.p-russia { background: linear-gradient(160deg, #fdba74, #2563eb); color: #172554; }
+.p-time { background: linear-gradient(160deg, #fde68a, #92400e); color: #451a03; }
+.p-eco { background: linear-gradient(160deg, #f9a8d4, #facc15); color: #701a75; }
+.pick { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 12px 16px 18px; }
+.pick h2 { margin: 0; font-size: 28px; }
+.hero-row, .pet-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.pet-row { grid-template-columns: repeat(3, minmax(0, 160px)); }
+.hero-card, .pet-card {
+  border: 3px solid transparent; border-radius: 20px; background: rgba(255,255,255,0.1);
+  color: inherit; padding: 8px; text-align: left; min-height: 148px;
+}
+.hero-card.on, .pet-card.on { border-color: #fbbf24; background: rgba(251, 191, 36, 0.16); }
+.hero-card svg, .pet-card svg { width: 72px; height: 72px; }
+.hero-card b, .pet-card b { display: block; font-size: 18px; }
+.hero-card span, .pet-card span { display: block; color: #ddd6fe; font-size: 13px; }
+.go {
+  align-self: flex-start; border: 0; border-radius: 16px; background: #fbbf24; color: #422006;
+  font-weight: 900; font-size: 20px; min-height: 52px; padding: 8px 18px;
+}
+.album {
+  flex: 1; min-height: 0; overflow: auto; padding: 8px 14px 16px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px;
+}
+.album article {
+  background: rgba(255,255,255,0.1); border-radius: 16px; padding: 10px; min-height: 110px;
+}
+.album h3 { margin: 0 0 6px; font-size: 16px; }
+.album p { margin: 0; font-size: 13px; line-height: 1.35; color: #e9d5ff; }
+.album article.locked { opacity: 0.55; }
+@media (max-width: 980px), (max-height: 700px) {
+  .hub-stage { grid-template-columns: minmax(240px, 32%) 1fr; }
+  .hero-card { min-height: 0; }
+  .hero-card svg { width: 56px; height: 56px; }
+  .portal { min-height: 76px; }
+  .pick h2 { font-size: 22px; }
+}

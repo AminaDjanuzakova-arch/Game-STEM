@@ -1,0 +1,27 @@
+.world-body {
+  position: fixed; inset: 0; color: #ecfeff;
+  background: radial-gradient(circle at 20% 20%, #115e59, #042f2e 55%, #1e1b4b);
+  font-family: Palatino, "Palatino Linotype", Georgia, serif;
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.world-body * { box-sizing: border-box; }
+.world-body [hidden] { display: none !important; }
+.body-top, .body-bottom { display: flex; gap: 10px; align-items: center; padding: 8px 12px; }
+.body-top h1 { margin: 0; font-size: 22px; }
+.body-mute, .body-end button {
+  border: 0; border-radius: 999px; min-height: 42px; padding: 6px 12px;
+  background: #5eead4; color: #042f2e; font-family: inherit; font-weight: 700;
+}
+.body-stage { position: relative; min-height: 0; }
+.body-stage canvas { width: 100%; height: 100%; display: block; }
+.oxy { flex: 1; height: 14px; background: #134e4a; border-radius: 99px; overflow: hidden; }
+.oxy b { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #99f6e4, #f9a8d4); }
+.body-speech { margin: 0; font-size: 16px; }
+.body-splash, .body-end {
+  position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; text-align: center;
+  background: rgba(4, 47, 46, 0.88);
+}
+.body-splash h2, .body-end h2 { margin: 0; font-size: 36px; color: #99f6e4; }
+.organ-pips { display: flex; gap: 6px; }
+.organ-pips i { width: 12px; height: 12px; border-radius: 50%; background: #134e4a; }
+.organ-pips i.on { background: #f9a8d4; }
